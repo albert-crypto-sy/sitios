@@ -1,0 +1,111 @@
+:root {
+  --fondo: #ffcf3f;
+  --tinta: #1d1414;
+  --papel: #fffaf0;
+  --acento: #e8432e;
+  --acento2: #2e6be8;
+  --suave: #6b5a4a;
+  --borde: #1d1414;
+  --sombra: 6px 6px 0 var(--borde);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo: #1b1612;
+    --tinta: #fbefdc;
+    --papel: #2a221b;
+    --acento: #ff6a4d;
+    --acento2: #7aa5ff;
+    --suave: #c9b49b;
+    --borde: #ffcf3f;
+  }
+}
+:root[data-theme="dark"] {
+  --fondo: #1b1612; --tinta: #fbefdc; --papel: #2a221b;
+  --acento: #ff6a4d; --acento2: #7aa5ff; --suave: #c9b49b; --borde: #ffcf3f;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  line-height: 1.45;
+  overflow-x: hidden;
+}
+
+.hero, main, footer { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+.hero { padding-top: 48px; padding-bottom: 24px; }
+.kicker { margin: 0; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: .85rem; color: var(--suave); }
+h1 { margin: 6px 0 12px; font-size: clamp(2.8rem, 11vw, 5.2rem); line-height: .92; font-weight: 800; letter-spacing: -.03em; }
+h1 span { color: var(--acento); display: inline-block; transform: rotate(-2deg); }
+.sub { margin: 0; max-width: 34em; font-size: 1.08rem; }
+
+.tarjeta {
+  background: var(--papel);
+  border: 3px solid var(--borde);
+  border-radius: 18px;
+  box-shadow: var(--sombra);
+  padding: 24px;
+  margin: 12px 0 40px;
+}
+.etiqueta {
+  display: inline-block; font-size: .8rem; font-weight: 600;
+  padding: 3px 10px; border-radius: 99px;
+  background: var(--tinta); color: var(--papel);
+}
+.planteamiento { font-size: clamp(1.35rem, 4.5vw, 1.8rem); font-weight: 600; margin: 16px 0 8px; }
+.remate {
+  font-size: clamp(1.25rem, 4.2vw, 1.6rem); font-weight: 800; color: var(--acento);
+  margin: 4px 0 8px; animation: pop .35s ease-out;
+}
+@keyframes pop { from { transform: scale(.9) rotate(-1deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .remate { animation: none; } }
+
+.acciones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 1.05rem;
+  padding: 12px 18px; border-radius: 12px; cursor: pointer;
+  border: 3px solid var(--borde); background: transparent; color: var(--tinta);
+  box-shadow: 3px 3px 0 var(--borde); transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translate(3px, 3px); box-shadow: none; }
+.btn.principal { background: var(--acento); color: #fff; }
+.btn[hidden] { display: none; }
+
+.extra { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.mini {
+  font: inherit; font-size: .95rem; padding: 6px 12px; border-radius: 99px; cursor: pointer;
+  border: 2px solid var(--borde); background: transparent; color: var(--tinta);
+}
+.mini[aria-pressed="true"] { background: var(--tinta); color: var(--papel); }
+.contador { margin-left: auto; color: var(--suave); font-size: .9rem; }
+
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.filtros button {
+  font: inherit; font-size: .9rem; padding: 6px 12px; border-radius: 99px; cursor: pointer;
+  border: 2px solid var(--borde); background: var(--papel); color: var(--tinta);
+}
+.filtros button[aria-pressed="true"] { background: var(--tinta); color: var(--papel); }
+
+.buscar {
+  width: 100%; font: inherit; font-size: 1rem; padding: 12px 14px; margin-bottom: 16px;
+  border: 3px solid var(--borde); border-radius: 12px; background: var(--papel); color: var(--tinta);
+}
+
+.lista { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.lista li {
+  background: var(--papel); border: 2px solid var(--borde); border-radius: 14px; padding: 14px 16px;
+}
+.lista details summary { cursor: pointer; font-weight: 600; list-style: none; }
+.lista details summary::-webkit-details-marker { display: none; }
+.lista details summary::after { content: "  ▸"; color: var(--acento); }
+.lista details[open] summary::after { content: "  ▾"; }
+.lista details p { margin: 8px 0 0; font-weight: 800; color: var(--acento); }
+.lista .tipo { font-size: .75rem; color: var(--suave); display: block; margin-bottom: 4px; }
+.vacio { text-align: center; color: var(--suave); }
+
+footer { padding-top: 40px; padding-bottom: 48px; font-size: .9rem; color: var(--suave); }
+
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--acento2); outline-offset: 2px; }
