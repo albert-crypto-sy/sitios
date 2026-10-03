@@ -5,4 +5,4 @@ After=network-online.target nginx.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/sitios/_vps/sync.sh
+ExecStart=/usr/local/sbin/sitios-sync

@@ -14,7 +14,9 @@ crea su sitio de nginx si es nuevo y, en cuanto el DNS resuelve, pide el certifi
 
 ## Cómo funciona en el VPS
 
-- `_vps/sync.sh` corre cada minuto mediante `sitios-sync.timer` (systemd), como root.
+- `_vps/sync.sh` corre cada minuto mediante `sitios-sync.timer` (systemd), como root. Se ejecuta la copia instalada en
+  `/usr/local/sbin/sitios-sync`, no la del repo: cambiar el script en el repo no cambia lo que corre en el VPS hasta reinstalarlo a mano.
+- No crea un sitio si otro sitio de nginx ya sirve ese dominio (p. ej. `lms`, `rma`, `www`).
 - Solo toca sitios de nginx creados por él (llevan la marca `# gestionado por sitios`). Los demás sitios del servidor no se tocan nunca.
 - Borrar una carpeta del repo no borra nada del servidor.
 - Logs: `journalctl -u sitios-sync -n 50`.
@@ -23,6 +25,7 @@ crea su sitio de nginx si es nuevo y, en cuanto el DNS resuelve, pide el certifi
 
 ```sh
 git clone https://github.com/albert-crypto-sy/sitios.git /opt/sitios
+install -m 755 /opt/sitios/_vps/sync.sh /usr/local/sbin/sitios-sync
 cp /opt/sitios/_vps/sitios-sync.service /opt/sitios/_vps/sitios-sync.timer /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now sitios-sync.timer

@@ -6,6 +6,8 @@
 # - Solo gestiona carpetas con nombre en minúsculas, dígitos y guiones (las que empiezan por _ o . se ignoran).
 # - Nunca toca un sitio de nginx que ya exista sin la marca "# gestionado por sitios".
 # - Borrar una carpeta del repo no borra nada en el servidor.
+# - En el VPS se ejecuta la copia instalada en /usr/local/sbin/sitios-sync, no la del repo:
+#   un push no cambia lo que se ejecuta como root (reinstalar a mano tras revisar).
 set -euo pipefail
 
 BASE_DOMAIN=somfylabs.cloud
@@ -45,8 +47,22 @@ for dir in "$SRC"/*/; do
     continue
   fi
 
+  if [ ! -f "$conf" ]; then
+    # otro sitio de nginx (p. ej. lms-somfy) ya sirve este dominio: no crear un duplicado
+    # (certbot podría acabar editando el sitio ajeno)
+    if grep -RlsE "server_name[^;]*[[:space:]]$domain([[:space:];]|\$)" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ >/dev/null; then
+      log "$domain ya lo sirve otro sitio de nginx, no lo toco"
+      continue
+    fi
+    if [ -e "$web" ]; then
+      log "$web ya existe sin sitio gestionado, no lo toco"
+      continue
+    fi
+  fi
+
   mkdir -p "$web"
-  rsync -a --delete --exclude '.*' "$dir" "$web/"
+  # --no-links: no publicar enlaces simbólicos (podrían apuntar fuera de la web)
+  rsync -a --delete --no-links --exclude '.*' "$dir" "$web/"
 
   if [ ! -f "$conf" ]; then
     cat > "$conf" <<EOF
@@ -73,6 +89,12 @@ server {
 }
 EOF
     ln -sf "$conf" "/etc/nginx/sites-enabled/$domain"
+    if ! nginx -t -q 2>/dev/null; then
+      # no dejar nginx con una configuración rota que bloquee las recargas del resto de sitios
+      rm -f "/etc/nginx/sites-enabled/$domain" "$conf"
+      log "la configuración de $domain no pasa nginx -t, la retiro"
+      continue
+    fi
     log "creado el sitio $domain"
     reload=1
   fi
