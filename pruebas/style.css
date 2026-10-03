@@ -1,0 +1,59 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #07021a;
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Controles táctiles: solo en pantallas táctiles */
+.touch { display: none; }
+
+@media (hover: none) and (pointer: coarse) {
+  .touch {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    padding: 0 16px;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+  .pad { display: flex; gap: 14px; }
+  .touch button {
+    pointer-events: auto;
+    width: 68px; height: 68px;
+    border-radius: 12px;
+    border: 2px solid #00f0ff;
+    background: rgba(0, 240, 255, 0.08);
+    color: #00f0ff;
+    font: 22px "Press Start 2P", monospace;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.5), inset 0 0 10px rgba(0, 240, 255, 0.25);
+    touch-action: none;
+  }
+  .touch button.jump {
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    border-color: #ff2bd6;
+    color: #ff2bd6;
+    background: rgba(255, 43, 214, 0.08);
+    box-shadow: 0 0 14px rgba(255, 43, 214, 0.6), inset 0 0 12px rgba(255, 43, 214, 0.3);
+  }
+  .touch button.on { background: rgba(255, 255, 255, 0.18); }
+}

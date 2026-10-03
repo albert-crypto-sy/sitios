@@ -1,0 +1,8 @@
+[Unit]
+Description=Publica las webs del repo sitios
+Wants=network-online.target
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sitios/_vps/sync.sh
