@@ -73,5 +73,30 @@ button {
     color: #ff5fa8;
     font-size: 48px;
   }
+  /* al final no hacen falta botones: se toca la pantalla para volver a jugar */
+  body[data-mode="end"] .touch { display: none; }
+
+  /* pantalla 1: solo izquierda y derecha */
+  .pad .up, .pad .down { display: none; }
+
+  /* laberinto: cruceta de cuatro flechas, sin botón de salto */
+  body[data-mode="maze"] .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 76px);
+    grid-template-rows: repeat(3, 66px);
+    gap: 4px;
+  }
+  body[data-mode="maze"] .pad button { width: 76px; height: 66px; font-size: 30px; border-radius: 22px; }
+  body[data-mode="maze"] .pad .up { display: block; grid-area: 1 / 2; }
+  body[data-mode="maze"] .pad .left { grid-area: 2 / 1; }
+  body[data-mode="maze"] .pad .right { grid-area: 2 / 3; }
+  body[data-mode="maze"] .pad .down { display: block; grid-area: 3 / 2; }
+  body[data-mode="maze"] .touch button.jump { display: none; }
+
+  /* mar: arriba y abajo para nadar */
+  body[data-mode="sea"] .pad { flex-direction: column; gap: 12px; }
+  body[data-mode="sea"] .pad .left, body[data-mode="sea"] .pad .right { display: none; }
+  body[data-mode="sea"] .pad .up, body[data-mode="sea"] .pad .down { display: block; }
+
   .touch button.on { transform: translateY(5px); box-shadow: 0 1px 0 #5b4370; }
 }
