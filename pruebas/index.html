@@ -17,15 +17,9 @@
 
   <button class="mute" id="mute" aria-label="Sonido">🔊</button>
 
-  <div class="touch" aria-hidden="true">
-    <div class="pad">
-      <button class="l" data-key="left">◀</button>
-      <button class="u" data-key="up">▲</button>
-      <button class="d" data-key="down">▼</button>
-      <button class="r" data-key="right">▶</button>
-    </div>
-    <button class="jump" data-key="jump">♥</button>
-  </div>
+  <!-- mando táctil: el joystick aparece donde se apoya el dedo; en reposo es un circulito -->
+  <div class="stick" id="stick" aria-hidden="true"><div class="knob"></div></div>
+  <button class="jump" id="jump" aria-label="Saltar">♥</button>
 
   <script src="game.js" defer></script>
 </body>

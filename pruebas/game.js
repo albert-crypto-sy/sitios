@@ -1,6 +1,6 @@
 /* Lila la unicornia — un juego tierno y muy fácil para peques. Sin dependencias.
    Tres pantallas: el camino al castillo (plataformas), el laberinto de las zanahorias (al entrar en el
-   castillo Lila se convierte en conejita) y la merienda en las nubes.
+   castillo Lila se convierte en conejita), el arrecife (ahora es una mantarraya) y la merienda en las nubes.
    No se pierde nunca: si Lila cae, una nube la devuelve arriba. No hay enemigos ni tiempo. */
 (() => {
   "use strict";
@@ -29,8 +29,7 @@
     scale = Math.min(H / VH, W / (portrait ? 560 : 900));
     viewW = W / scale; viewH = H / scale;
     // en vertical sobra cielo arriba; con botones táctiles, el suelo queda por encima de ellos
-    // (en el laberinto la cruceta es más alta)
-    const reserve = isTouch && portrait ? ((state === "maze" ? 270 : 150) * dpr) / scale : 0;
+    const reserve = isTouch && portrait ? (120 * dpr) / scale : 0;
     offY = viewH - VH - reserve;
   }
   addEventListener("resize", resize);
@@ -100,21 +99,52 @@
   });
   addEventListener("keyup", (e) => { const ks = KEYMAP[e.code]; if (ks) for (const k of ks) keys[k] = false; });
 
-  document.querySelectorAll(".touch button").forEach((b) => {
-    const k = b.dataset.key;
-    const on = (e) => {
-      e.preventDefault();
-      if (k === "jump" && !keys.jump) jumpBuffer = 8;
-      keys[k] = true; b.classList.add("on");
-      unlockAudio(); tapStart();
-    };
-    const off = (e) => { e.preventDefault(); keys[k] = false; b.classList.remove("on"); };
-    b.addEventListener("pointerdown", on);
-    b.addEventListener("pointerup", off);
-    b.addEventListener("pointercancel", off);
-    b.addEventListener("pointerleave", off);
+  // Táctil: joystick virtual que aparece donde se apoya el dedo (mitad izquierda) y,
+  // en las pantallas con salto, tocar la mitad derecha (o el corazón pequeño) salta.
+  const joy = { x: 0, y: 0, id: null, bx: 0, by: 0 };
+  let jumpId = null;
+  const stickEl = document.getElementById("stick"), knobEl = stickEl.querySelector(".knob");
+  const jumpBtn = document.getElementById("jump");
+  const JR = 44;  // recorrido del mando, en px
+  const hasStick = () => state === "play" || state === "maze" || state === "sea" || state === "sky";
+  const hasJump = () => state === "play" || state === "sky";
+  function pressJump(id) {
+    if (!keys.jump) jumpBuffer = 8;
+    keys.jump = true; jumpId = id; jumpBtn.classList.add("on");
+  }
+  addEventListener("pointerdown", (e) => {
+    unlockAudio();
+    if (e.target === muteBtn) return;
+    if (e.pointerType === "mouse" || !hasStick()) { tapStart(); return; }
+    if (e.clientX < innerWidth * 0.5 || !hasJump()) {
+      if (joy.id !== null) return;
+      joy.id = e.pointerId; joy.bx = e.clientX; joy.by = e.clientY; joy.x = joy.y = 0;
+      stickEl.classList.add("active");
+      stickEl.style.left = joy.bx + "px"; stickEl.style.top = joy.by + "px";
+      knobEl.style.transform = "";
+    } else pressJump(e.pointerId);
   });
-  screen.addEventListener("pointerdown", () => { unlockAudio(); tapStart(); });
+  addEventListener("pointermove", (e) => {
+    if (e.pointerId !== joy.id) return;
+    let dx = e.clientX - joy.bx, dy = e.clientY - joy.by;
+    const d = Math.hypot(dx, dy);
+    if (d > JR) { dx *= JR / d; dy *= JR / d; }
+    joy.x = dx / JR; joy.y = dy / JR;
+    knobEl.style.transform = `translate(${dx}px, ${dy}px)`;
+  });
+  function pointerEnd(e) {
+    if (e.pointerId === joy.id) {
+      joy.id = null; joy.x = joy.y = 0;
+      stickEl.classList.remove("active"); stickEl.style.left = stickEl.style.top = ""; knobEl.style.transform = "";
+    }
+    if (e.pointerId === jumpId) { jumpId = null; keys.jump = false; jumpBtn.classList.remove("on"); }
+  }
+  addEventListener("pointerup", pointerEnd);
+  addEventListener("pointercancel", pointerEnd);
+  // ejes -1..1 sumando joystick y teclado, con zona muerta
+  const dead = (v) => (Math.abs(v) < 0.22 ? 0 : Math.max(-1, Math.min(1, v)));
+  const axisX = () => dead(joy.x + (keys.right ? 1 : 0) - (keys.left ? 1 : 0));
+  const axisY = () => dead(joy.y + (keys.down ? 1 : 0) - (keys.up ? 1 : 0));
 
   /* ---------- Sonidos suaves y musiquita ---------- */
   let ac = null, muted = false;
@@ -155,6 +185,8 @@
     balloon: () => { tone(300, 620, 0.7, 0.05); tone(880, 1318, 0.5, 0.03, 0.3); },
     yum: () => { tone(620, 1400, 0.09, 0.06); tone(1760, 1760, 0.12, 0.035, 0.07); },
     plop: () => tone(500, 260, 0.12, 0.035),
+    boop: () => { tone(330, 220, 0.14, 0.06, 0, "triangle"); tone(660, 880, 0.08, 0.025, 0.08); },
+    bloop: () => tone(500, 900, 0.07, 0.015),
   };
 
   // Música: una melodía de cajita de música por pantalla, programada con un poco de antelación.
@@ -163,6 +195,7 @@
     maze: { bpm: 100, lead: [77, 81, 84, 81, 79, 0, 76, 0, 74, 77, 81, 77, 76, 0, 72, 0, 77, 81, 84, 86, 84, 81, 79, 0, 81, 79, 77, 76, 77, 0, 0, 0], bass: [41, 36, 38, 36, 41, 34, 36, 41] },
     sky: { bpm: 124, lead: [79, 83, 86, 83, 84, 81, 76, 81, 79, 83, 86, 91, 88, 86, 84, 81, 83, 84, 86, 84, 81, 79, 78, 81, 79, 0, 83, 0, 79, 0, 0, 0], bass: [43, 48, 43, 48, 43, 38, 43, 43] },
   };
+  SONGS.sea = { bpm: 92, lead: [74, 78, 81, 78, 79, 0, 76, 0, 74, 78, 81, 86, 85, 0, 81, 0, 83, 81, 79, 78, 76, 0, 78, 79, 81, 0, 78, 0, 74, 0, 0, 0], bass: [38, 43, 38, 45, 43, 38, 45, 38] };
   SONGS.party = { ...SONGS.meadow, bpm: 140 };
   let song = null, songStep = 0, nextNoteT = 0, musicBus = null;
   function playSong(name) {
@@ -196,7 +229,7 @@
   }
 
   /* ---------- Estado ---------- */
-  let state = "title";  // title | play | magic | maze | sky | end
+  let state = "title";  // title | play | magic | maze | sea | sky | end
   let lila, cam, stars, hearts, totalStars, particles, frame = 0, stateT = 0, rescue = 0, confetti = [];
   let carrots = 0, sweets = 0;
   let fade = null;     // fundido entre pantallas: { t, mid }
@@ -217,7 +250,7 @@
   function newGame() {
     buildLevel();
     lila = { x: 2 * T, y: 10 * T - 64, w: 64, h: 64, vx: 0, vy: 0, onGround: false, face: 1, walk: 0, coyote: 0, safeX: 2 * T, safeY: 10 * T - 64, squash: 0, blink: 120 };
-    cam = 0; stars = 0; hearts = 0; carrots = 0; sweets = 0; particles = []; confetti = [];
+    cam = 0; stars = 0; hearts = 0; carrots = 0; sweets = 0; sea = null; particles = []; confetti = [];
     totalStars = items.filter((i) => i.kind === "star").length;
     setStage("play"); rescue = 0; bunnyForm = false; fade = null;
     playSong("meadow");
@@ -236,6 +269,7 @@
     if (state === "title") { cam += 1.2; if (cam > END - viewW) cam = 0; return; }
     if (state === "magic") { updateMagic(); return; }
     if (state === "maze") { updateMaze(); return; }
+    if (state === "sea") { updateSea(); return; }
     if (state === "sky" || state === "end") { updateSkyStage(); return; }
 
     const L = lila;
@@ -250,8 +284,8 @@
     }
 
     const maxV = 5.2;
-    if (keys.left && !keys.right) { L.vx = Math.max(L.vx - 0.5, -maxV); L.face = -1; }
-    else if (keys.right && !keys.left) { L.vx = Math.min(L.vx + 0.5, maxV); L.face = 1; }
+    const ax = axisX();
+    if (ax) { L.vx += Math.max(-0.5, Math.min(0.5, ax * maxV - L.vx)); L.face = Math.sign(ax); }
     else { L.vx *= 0.82; if (Math.abs(L.vx) < 0.1) L.vx = 0; }
 
     if (L.onGround) L.coyote = 8; else if (L.coyote > 0) L.coyote--;
@@ -904,7 +938,7 @@
   }
   function mazeCam(snap) {
     // en horizontal con botones táctiles, la cruceta ocupa la izquierda: el laberinto se aparta
-    const left = isTouch && !portrait ? (250 * Math.min(devicePixelRatio || 1, 2)) / scale : 0;
+    const left = 0;
     const avail = viewW - left;
     let target;
     if (MAZE_W <= avail) target = -(left + (avail - MAZE_W) / 2);
@@ -916,11 +950,15 @@
     if (--B.blink < 0) B.blink = 160 + Math.random() * 120;
     if (mz.leaving) { updateLeaving(); return; }
     const sp = 3.6;
-    const dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
-    const dy = dx ? 0 : (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+    // el joystick manda en el eje dominante: así se gira bien en los pasillos
+    const jx = axisX(), jy = axisY();
+    const hor = Math.abs(jx) >= Math.abs(jy);
+    const mag = Math.min(1, Math.hypot(jx, jy) * 1.25);
+    const dx = hor && jx ? Math.sign(jx) * mag : 0;
+    const dy = !hor && jy ? Math.sign(jy) * mag : 0;
     B.moving = !!(dx || dy);
     if (dx) {
-      B.look = dx;
+      B.look = Math.sign(dx);
       if (!blockedAt(B.x + dx * sp, B.y, B.w, B.h)) B.x += dx * sp;
       else assist("y", Math.floor((B.x + (dx > 0 ? B.w + sp : -sp)) / T));
     }
@@ -980,7 +1018,7 @@
     B.x += (e.c * T + 12 - B.x) * 0.15;
     const lift = Math.max(0, mz.leaving - 30);
     B.y = MOY + e.r * T + 12 - lift * lift * 0.03;
-    if (mz.leaving === 120) fadeTo(startSky);
+    if (mz.leaving === 120) fadeTo(startSea);
     mazeCam(false);
   }
 
@@ -1097,7 +1135,284 @@
     label(`${carrots}/${mz.total}`, 140, y + 2, 30, "#ffa94d");
   }
 
-  /* ---------- Pantalla 3: la merienda en las nubes ---------- */
+  /* ---------- Pantalla 3: el arrecife de las estrellas de mar ---------- */
+  // Lila es una mantarraya y nada entre corales. Si choca, rebota con suavidad: no se pierde nunca.
+  const SURF = 70, SEABED = 660;
+  let sea = null, manta = null;
+  const CORAL_COLS = [P.pink2, "#ff9f9f", P.lilac2, "#ffb36b"];
+
+  function buildSea() {
+    sea = { corals: [], stars: [], weeds: [], got: 0, total: 0, leaving: 0, bumpCd: 0 };
+    const coral = (x, fromTop, len, k) => {
+      const circles = [];
+      const n = Math.max(2, Math.round(len / 46));
+      for (let i = 0; i <= n; i++) {
+        const y = fromTop ? SURF - 30 + (i * len) / n : SEABED + 30 - (i * len) / n;
+        circles.push({ x: x + Math.sin(i * 1.4 + k) * 12, y, r: 40 - i * (14 / n) });
+      }
+      // ramitas
+      const mid = circles[Math.max(1, n - 2)];
+      circles.push({ x: mid.x - 42, y: mid.y + (fromTop ? 16 : -16), r: 20 });
+      circles.push({ x: mid.x + 40, y: mid.y + (fromTop ? 26 : -26), r: 17 });
+      sea.corals.push({ fromTop, circles, col: fromTop ? "#c3b1e6" : CORAL_COLS[k % CORAL_COLS.length], k });
+    };
+    const star = (x, y) => sea.stars.push({ x, y, taken: false, ph: Math.random() * TAU });
+    // [tipo, alto]: b = coral desde el fondo, t = roca desde arriba, g = los dos con un hueco en medio
+    const plan = [["b", 260], ["t", 250], ["b", 330], ["g", 210], ["t", 320], ["b", 290], ["g", 230],
+      ["t", 270], ["b", 350], ["t", 330], ["g", 200], ["b", 310]];
+    let x = 900;
+    plan.forEach(([kind, h], i) => {
+      if (kind === "b" || kind === "g") coral(x, false, h, i);
+      if (kind === "t" || kind === "g") coral(x + (kind === "g" ? 10 : 0), true, kind === "g" ? 590 - h - 230 + 40 : h, i + 1);
+      // estrella de mar en el paso libre, y otras dos por el camino
+      if (kind === "b") star(x, SEABED - h - 120);
+      else if (kind === "t") star(x, SURF + h + 120);
+      else star(x, SEABED - h - 125);
+      star(x + 230, 260 + ((i * 97) % 260));
+      if (i % 2) star(x + 300, 300 + ((i * 53) % 200));
+      x += 460;
+    });
+    sea.len = x + 400;
+    sea.exitX = sea.len - 260;
+    for (let wx = 120; wx < sea.len; wx += 140 + ((wx * 7) % 90)) sea.weeds.push({ x: wx, h: 50 + ((wx * 13) % 60), ph: wx * 0.01 });
+    sea.total = sea.stars.length;
+  }
+  function startSea() {
+    setStage("sea"); playSong("sea");
+    particles = []; confetti = [];
+    buildSea();
+    manta = { x: 160, y: 330, vx: 0, vy: 0, face: 1, flap: 0, bump: 0, blink: 100 };
+    cam = 0;
+    sfx.poof();
+    for (let i = 0; i < 24; i++) sparkle(manta.x, manta.y, i % 2 ? P.white : P.blue, i % 3 === 0);
+  }
+  function updateSea() {
+    const M = manta;
+    if (--M.blink < 0) M.blink = 160 + Math.random() * 120;
+    if (sea.bumpCd > 0) sea.bumpCd--;
+    if (M.bump > 0) M.bump--;
+    if (sea.leaving) {
+      sea.leaving++;
+      M.vx *= 0.9; M.vy = -2.2; M.y += M.vy; M.x += (sea.exitX - M.x) * 0.08;
+      if (frame % 4 === 0) particles.push({ x: M.x + (Math.random() - 0.5) * 60, y: M.y + 30, vx: 0, vy: -1.5, life: 40, max: 40, col: "rgba(255,255,255,0.8)", r: 6, kind: "dot" });
+      if (sea.leaving === 100) fadeTo(startSky);
+      seaCam();
+      return;
+    }
+    const ax = axisX(), ay = axisY();
+    M.vx = (M.vx + ax * 0.55) * 0.93;
+    M.vy = (M.vy + ay * 0.55) * 0.93;
+    const sp = Math.hypot(M.vx, M.vy);
+    if (sp > 6.5) { M.vx *= 6.5 / sp; M.vy *= 6.5 / sp; }
+    M.x += M.vx; M.y += M.vy;
+    if (Math.abs(M.vx) > 0.6) M.face = Math.sign(M.vx);
+    M.flap += 0.07 + sp * 0.025;
+    M.x = Math.max(50, Math.min(sea.len - 50, M.x));
+    M.y = Math.max(SURF + 34, Math.min(SEABED - 30, M.y));
+    // choques suaves con los corales
+    for (const c of sea.corals) {
+      for (const k of c.circles) {
+        const dx = M.x - k.x, dy = M.y - k.y, d = Math.hypot(dx, dy) || 1, min = k.r + 26;
+        if (d < min) {
+          const nx = dx / d, ny = dy / d;
+          M.x = k.x + nx * min; M.y = k.y + ny * min;
+          const dot = M.vx * nx + M.vy * ny;
+          if (dot < 0) { M.vx -= 1.6 * dot * nx; M.vy -= 1.6 * dot * ny; }
+          if (!sea.bumpCd) { sea.bumpCd = 20; M.bump = 20; sfx.boop(); }
+        }
+      }
+    }
+    // estrellas de mar
+    for (const s of sea.stars) {
+      if (s.taken) continue;
+      if (Math.hypot(s.x - M.x, s.y - M.y) < 52) {
+        s.taken = true; sea.got++; sfx.star();
+        for (let i = 0; i < 10; i++) sparkle(s.x, s.y, i % 2 ? "#ffa07a" : P.yellow);
+      }
+    }
+    // burbujitas al nadar
+    if (sp > 2 && frame % 6 === 0) {
+      particles.push({ x: M.x - M.face * 40, y: M.y + (Math.random() - 0.5) * 20, vx: -M.face * 0.3, vy: -1.2, life: 45, max: 45, col: "rgba(255,255,255,0.85)", r: 4 + Math.random() * 3, kind: "dot" });
+      if (frame % 36 === 0) sfx.bloop();
+    }
+    // la burbuja mágica del final
+    if (Math.hypot(M.x - sea.exitX, M.y - 360) < 90) { sea.leaving = 1; sfx.balloon(); }
+    seaCam();
+  }
+  function seaCam() {
+    const target = Math.max(0, Math.min(manta.x - viewW * 0.38, sea.len - viewW));
+    cam += (target - cam) * 0.12;
+  }
+
+  function drawSea() {
+    // cielo por encima del agua
+    ctx.fillStyle = "#ffe3f3"; ctx.fillRect(0, -offY, viewW, SURF + offY);
+    const g = ctx.createLinearGradient(0, SURF, 0, VH);
+    g.addColorStop(0, "#bfefff"); g.addColorStop(1, "#86c9f2");
+    ctx.fillStyle = g; ctx.fillRect(0, SURF, viewW, viewH);
+    // rayos de luz
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    for (let i = 0; i < 6; i++) {
+      const x = ((i * 260 - cam * 0.3 + frame * 0.2) % (viewW + 400) + viewW + 400) % (viewW + 400) - 200;
+      ctx.beginPath(); ctx.moveTo(x, SURF); ctx.lineTo(x + 70, SURF); ctx.lineTo(x + 230, SEABED); ctx.lineTo(x + 120, SEABED); ctx.closePath(); ctx.fill();
+    }
+    // peces amigos al fondo
+    for (let i = 0; i < 7; i++) {
+      const dir = i % 2 ? 1 : -1;
+      const x = ((i * 377 + dir * frame * (0.6 + i * 0.1) - cam * 0.4) % (viewW + 300) + viewW + 300) % (viewW + 300) - 150;
+      const y = 140 + ((i * 131) % 380) + Math.sin(frame * 0.03 + i) * 10;
+      ctx.globalAlpha = 0.55;
+      ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
+      ctx.beginPath(); ctx.ellipse(0, 0, 22, 14, 0, 0, TAU); ctx.fillStyle = [P.yellow, P.pink, P.mint, P.peach][i % 4]; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(-34, -12); ctx.lineTo(-34, 12); ctx.closePath(); ctx.fill();
+      circle(9, -3, 3); ctx.fillStyle = INK; ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    // superficie con olitas
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.beginPath(); ctx.moveTo(0, SURF - 4);
+    for (let x = 0; x <= viewW + 20; x += 20) ctx.lineTo(x, SURF + Math.sin((x + cam) * 0.03 + frame * 0.06) * 5);
+    ctx.lineTo(viewW, SURF + 14); ctx.lineTo(0, SURF + 14); ctx.closePath(); ctx.fill();
+    // fondo de arena
+    ctx.fillStyle = "#ffe9c7";
+    ctx.beginPath(); ctx.moveTo(0, VH + 900);
+    for (let x = 0; x <= viewW + 20; x += 20) ctx.lineTo(x, SEABED + Math.sin((x + cam) * 0.012) * 10);
+    ctx.lineTo(viewW, VH + 900); ctx.closePath(); ctx.fill(); outline(4);
+    // algas
+    for (const w of sea.weeds) {
+      const x = w.x - cam;
+      if (x < -40 || x > viewW + 40) continue;
+      ctx.strokeStyle = P.mint2; ctx.lineWidth = 9; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x, SEABED + 6);
+      for (let i = 1; i <= 4; i++) ctx.lineTo(x + Math.sin(frame * 0.04 + w.ph + i) * 8 * i * 0.5, SEABED + 6 - (w.h * i) / 4);
+      ctx.stroke();
+    }
+    // corales: contorno de todos los círculos y luego el relleno, para que parezcan de una pieza
+    for (const c of sea.corals) {
+      const x0 = c.circles[0].x - cam;
+      if (x0 < -160 || x0 > viewW + 160) continue;
+      ctx.fillStyle = INK;
+      for (const k of c.circles) { circle(k.x - cam, k.y, k.r + 4); ctx.fill(); }
+      ctx.fillStyle = c.col;
+      for (const k of c.circles) { circle(k.x - cam, k.y, k.r); ctx.fill(); }
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      for (const k of c.circles) { circle(k.x - cam - k.r * 0.3, k.y - k.r * 0.3, k.r * 0.3); ctx.fill(); }
+      const tip = c.circles[c.circles.length - 3];
+      face(tip.x - cam, tip.y + (c.fromTop ? 4 : 0), 16);
+      if (c.fromTop) islet(c.circles[0].x - cam, c.k);
+    }
+    // estrellas de mar
+    for (const s of sea.stars) {
+      if (s.taken) continue;
+      const x = s.x - cam;
+      if (x < -40 || x > viewW + 40) continue;
+      drawStarfish(x, s.y + Math.sin(frame * 0.05 + s.ph) * 5, 1, Math.sin(frame * 0.03 + s.ph) * 0.3);
+    }
+    // burbuja mágica del final
+    const ex = sea.exitX - cam;
+    if (ex > -120 && ex < viewW + 120) {
+      const r = 70 + Math.sin(frame * 0.08) * 5;
+      circle(ex, 360, r); ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fill();
+      ctx.lineWidth = 5; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ex, 360, r - 16, 3.6, 4.4); ctx.lineWidth = 6; ctx.stroke();
+      if (frame % 8 === 0) particles.push({ x: sea.exitX + (Math.random() - 0.5) * 120, y: 360 + (Math.random() - 0.5) * 120, vx: 0, vy: -0.5, life: 40, max: 40, col: P.yellow, r: 7, kind: "star", rot: 0 });
+    }
+    drawManta(manta, manta.x - cam, manta.y);
+    if (sea.leaving) { circle(manta.x - cam, manta.y, 66); ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke(); }
+  }
+  // islita con palmera de la que cuelga la roca
+  function islet(x, k) {
+    const sway = Math.sin(frame * 0.04 + k) * 0.08;
+    ctx.save(); ctx.translate(x + 10, SURF - 34); ctx.rotate(sway);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(10, -40, 4, -78);
+    ctx.lineWidth = 12; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.lineWidth = 7; ctx.strokeStyle = "#e0a96d"; ctx.stroke();
+    ctx.fillStyle = P.mint2;
+    for (const a of [-2.6, -1.9, -1.2, -0.5]) {
+      ctx.save(); ctx.translate(4, -78); ctx.rotate(a);
+      ctx.beginPath(); ctx.ellipse(26, 0, 28, 9, 0, 0, TAU); ctx.fill(); outline(3);
+      ctx.restore();
+    }
+    circle(-2, -70, 6); ctx.fillStyle = "#b07a4a"; ctx.fill(); outline(2.5);
+    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(x, SURF - 2, 88, 40, 0, Math.PI, TAU); ctx.closePath();
+    ctx.fillStyle = "#ffe9c7"; ctx.fill(); outline(4);
+  }
+  function drawStarfish(x, y, s, rot) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i * TAU) / 5, b = a + TAU / 10;
+      const px = Math.cos(a) * 26, py = Math.sin(a) * 26;
+      if (i === 0) ctx.moveTo(px, py);
+      ctx.quadraticCurveTo(Math.cos(a + 0.12) * 30, Math.sin(a + 0.12) * 30, Math.cos(b) * 12, Math.sin(b) * 12);
+      const na = a + TAU / 5;
+      ctx.quadraticCurveTo(Math.cos(na - 0.12) * 30, Math.sin(na - 0.12) * 30, Math.cos(na) * 26, Math.sin(na) * 26);
+    }
+    ctx.closePath();
+    ctx.fillStyle = "#ffa07a"; ctx.fill(); outline(3);
+    ctx.fillStyle = "#ffd0b5";
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i * TAU) / 5; circle(Math.cos(a) * 16, Math.sin(a) * 16, 2.5); ctx.fill(); }
+    face(0, 2, 11);
+    ctx.restore();
+  }
+  // Mantarraya vista desde arriba, mirando hacia donde nada. (x, y) = centro.
+  function drawManta(M, x, y) {
+    const flap = Math.sin(M.flap * 2);
+    ctx.save(); ctx.translate(x, y);
+    if (M.bump > 0 && Math.floor(M.bump / 3) % 2) ctx.globalAlpha = 0.6;
+    ctx.scale(M.face || 1, 1);
+    ctx.rotate((M.vy || 0) * 0.04 * (M.face || 1));
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    // colita
+    ctx.beginPath(); ctx.moveTo(-26, 0); ctx.quadraticCurveTo(-56, 6 + flap * 6, -78, -2 + flap * 8);
+    ctx.strokeStyle = INK; ctx.lineWidth = 7; ctx.stroke();
+    ctx.strokeStyle = P.lilac2; ctx.lineWidth = 3.5; ctx.stroke();
+    // cuerpo con alas que aletean
+    const wy = 40 + flap * 10;
+    ctx.beginPath();
+    ctx.moveTo(34, -6);
+    ctx.quadraticCurveTo(14, -wy * 0.7, -10, -wy);
+    ctx.quadraticCurveTo(-6, -18, -30, -4);
+    ctx.quadraticCurveTo(-34, 0, -30, 4);
+    ctx.quadraticCurveTo(-6, 18, -10, wy);
+    ctx.quadraticCurveTo(14, wy * 0.7, 34, 6);
+    ctx.quadraticCurveTo(40, 0, 34, -6);
+    ctx.closePath();
+    ctx.fillStyle = P.lilac; ctx.fill(); outline(4);
+    // manchitas
+    ctx.fillStyle = P.pink;
+    circle(-6, -wy * 0.55, 5); ctx.fill(); circle(-4, wy * 0.55, 5); ctx.fill();
+    heartPath(-12, 0, 6); ctx.fill();
+    // cuernitos de la cabeza (las aletas cefálicas)
+    ctx.beginPath(); ctx.ellipse(38, -10, 8, 4, -0.5, 0, TAU); ctx.fillStyle = P.lilac; ctx.fill(); outline(3);
+    ctx.beginPath(); ctx.ellipse(38, 10, 8, 4, 0.5, 0, TAU); ctx.fill(); outline(3);
+    // ojos kawaii
+    for (const d of [-8, 8]) {
+      if (M.blink < 8) { ctx.beginPath(); ctx.arc(18, d, 4, 0.1 * Math.PI + (d < 0 ? 0 : 0), 0.9 * Math.PI); ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke(); }
+      else { ctx.beginPath(); ctx.ellipse(18, d, 4.5, 5.5, 0, 0, TAU); ctx.fillStyle = INK; ctx.fill(); circle(19.5, d - 2, 1.8); ctx.fillStyle = P.white; ctx.fill(); }
+    }
+    ctx.fillStyle = "rgba(255,140,198,0.6)";
+    ctx.beginPath(); ctx.ellipse(12, -16, 4, 2.5, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(12, 16, 4, 2.5, 0, 0, TAU); ctx.fill();
+    // el lacito de siempre
+    ctx.save(); ctx.translate(2, 0);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-8, -10); ctx.lineTo(8, -10); ctx.closePath(); ctx.fillStyle = P.lilac2; ctx.fill(); outline(2);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-8, 10); ctx.lineTo(8, 10); ctx.closePath(); ctx.fill(); outline(2);
+    starPath(0, 0, 5); ctx.fillStyle = P.gold; ctx.fill(); outline(1.5);
+    ctx.restore();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+  function drawSeaHud() {
+    const y = 46 - offY;
+    rr(20, y - 30, 210, 60, 30); ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill(); outline(4);
+    drawStarfish(56, y + 2, 0.75, 0);
+    label(`${sea.got}/${sea.total}`, 150, y + 2, 30, "#ffa07a");
+  }
+
+  /* ---------- Pantalla 4: la merienda en las nubes ---------- */
   const FLOOR = 600;
   let sk = null;
   const SWEETS = ["cupcake", "strawberry", "star", "candy", "cupcake", "strawberry"];
@@ -1120,8 +1435,8 @@
     }
     // izquierda / derecha, y un saltito con el corazón
     const maxV = 6.5;
-    if (keys.left && !keys.right) { B.vx = Math.max(B.vx - 0.8, -maxV); B.look = -1; }
-    else if (keys.right && !keys.left) { B.vx = Math.min(B.vx + 0.8, maxV); B.look = 1; }
+    const ax = axisX();
+    if (ax) { B.vx += Math.max(-0.8, Math.min(0.8, ax * maxV - B.vx)); B.look = Math.sign(ax); }
     else { B.vx *= 0.8; if (Math.abs(B.vx) < 0.2) { B.vx = 0; B.look = 0; } }
     B.x = Math.max(50, Math.min(viewW - 50, B.x + B.vx));
     B.moving = Math.abs(B.vx) > 0.5;
@@ -1273,14 +1588,16 @@
     rr(cx - 320, top + 20, 640, 180, 40); ctx.fillStyle = "rgba(255,255,255,0.93)"; ctx.fill(); outline(5);
     label("¡Qué fiesta!", cx, top + 76, 66, P.hot);
     const y = top + 152;
-    starPath(cx - 210, y, 20); ctx.fillStyle = P.yellow; ctx.fill(); outline(3);
-    label(`${stars}`, cx - 180, y + 2, 36, P.yellow, INK, "left");
-    heartPath(cx - 90, y, 16); ctx.fillStyle = P.hot; ctx.fill(); outline(3);
-    label(`${hearts}`, cx - 64, y + 2, 36, P.pink, INK, "left");
-    drawCarrot(cx + 30, y, 0.75, 0.3);
-    label(`${carrots}`, cx + 54, y + 2, 36, "#ffa94d", INK, "left");
-    drawSweet("cupcake", cx + 150, y + 2, 0.75);
-    label(`${sweets}`, cx + 176, y + 2, 36, P.lilac, INK, "left");
+    starPath(cx - 250, y, 20); ctx.fillStyle = P.yellow; ctx.fill(); outline(3);
+    label(`${stars}`, cx - 222, y + 2, 36, P.yellow, INK, "left");
+    heartPath(cx - 120, y, 16); ctx.fillStyle = P.hot; ctx.fill(); outline(3);
+    label(`${hearts}`, cx - 96, y + 2, 36, P.pink, INK, "left");
+    drawCarrot(cx + 10, y, 0.7, 0.3);
+    label(`${carrots}`, cx + 32, y + 2, 36, "#ffa94d", INK, "left");
+    drawStarfish(cx + 105, y, 0.65, 0);
+    label(`${sea ? sea.got : 0}`, cx + 128, y + 2, 36, "#ffa07a", INK, "left");
+    drawSweet("cupcake", cx + 210, y + 2, 0.7);
+    label(`${sweets}`, cx + 234, y + 2, 36, P.lilac, INK, "left");
     ctx.restore();
     if (stateT > 120) drawReplay(cx, top + 280);
   }
@@ -1292,6 +1609,11 @@
       drawParticles();
       drawMazeHud();
       banner("El laberinto de las zanahorias", isTouch ? "¡recoge todas las zanahorias!" : "recoge las zanahorias con las flechas", stateT);
+    } else if (state === "sea") {
+      drawSea();
+      drawParticles();
+      drawSeaHud();
+      banner("¡Lila es una mantarraya!", "nada entre los corales y coge estrellas de mar", stateT);
     } else if (state === "sky" || state === "end") {
       drawSkyStage();
       drawParticles();
