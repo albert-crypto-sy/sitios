@@ -74,4 +74,20 @@ button {
     font-size: 48px;
   }
   .touch button.on { transform: translateY(5px); box-shadow: 0 1px 0 #5b4370; }
+
+  /* arriba/abajo solo en el laberinto, donde la cruceta se pone en cruz y no hay salto */
+  .touch .u, .touch .d { display: none; }
+  [data-stage="maze"] .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    grid-template-rows: repeat(3, 72px);
+    gap: 4px;
+  }
+  [data-stage="maze"] .touch button { width: 72px; height: 72px; border-radius: 24px; font-size: 28px; }
+  [data-stage="maze"] .touch .u, [data-stage="maze"] .touch .d { display: block; }
+  [data-stage="maze"] .touch .u { grid-area: 1 / 2; }
+  [data-stage="maze"] .touch .l { grid-area: 2 / 1; }
+  [data-stage="maze"] .touch .r { grid-area: 2 / 3; }
+  [data-stage="maze"] .touch .d { grid-area: 3 / 2; }
+  [data-stage="maze"] .touch .jump { display: none; }
 }
